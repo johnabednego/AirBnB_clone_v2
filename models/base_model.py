@@ -1,64 +1,97 @@
 #!/usr/bin/python3
-"""Base model module.
+""" """
+from models.base_model import BaseModel
+import unittest
+import datetime
+from uuid import UUID
+import json
+import os
 
-This module defines a base class for all models in our hbnb clone
-"""
-import uuid
-from datetime import datetime
-import models
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, String, DateTime
-
-Base = declarative_base()
-
-
-class BaseModel:
-    """A base class for all hbnb models."""
-
-    id = Column(String(60), primary_key=True)
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow)
-
+class test_basemodel(unittest.TestCase):
+    """ """
+   
     def __init__(self, *args, **kwargs):
-        """Instantiate a new model."""
-        self.id = str(uuid.uuid4())
-        self.created_at = datetime.now()
-        self.updated_at = datetime.now()
-        if kwargs:
-            for k, v in kwargs.items():
-                if k == 'created_at' or k == 'updated_at':
-                    setattr(self, k, datetime.strptime(v,
-                                                       '%Y-%m-%dT%H:%M:%S.%f'))
-                elif k != '__class__':
-                    setattr(self, k, v)
+        """ """
+        super().__init__(*args, **kwargs)
+        self.name = 'BaseModel'
+        self.value = BaseModel
 
-    def __str__(self):
-        """Return a string representation of the instance."""
-        cls = (str(type(self)).split('.')[-1]).split('\'')[0]
-        filtered_dict = {
-                         k: v for k, v in self.__dict__.copy().items()
-                         if k != '_sa_instance_state'
-                         }
-        return '[{}] ({}) {}'.format(cls, self.id, filtered_dict)
+    def setUp(self):
+        """ """
+        pass
 
-    def save(self):
-        """Update updated_at with current time when instance is changed."""
-        self.updated_at = datetime.now()
-        models.storage.new(self)
-        models.storage.save()
+    def tearDown(self):
+        try:
+            os.remove('file.json')
+        except:
+            pass
 
-    def to_dict(self):
-        """Convert instance into dict format."""
-        dictionary = self.__dict__.copy()
+    def test_default(self):
+        """ """
+        i = self.value()
+        self.assertEqual(type(i), self.value)
 
-        if '_sa_instance_state' in dictionary:
-            del dictionary['_sa_instance_state']
-        dictionary.update({'__class__':
-                          self.__class__.__name__})
-        dictionary['created_at'] = self.created_at.isoformat()
-        dictionary['updated_at'] = self.updated_at.isoformat()
-        return dictionary
+    def test_kwargs(self):
+        """ """
+        i = self.value()
+        copy = i.to_dict()
+        new = BaseModel(**copy)
+        self.assertFalse(new is i)
 
-    def delete(self):
-        """Delete the current instance from the storage."""
-        models.storage.delete(self)
+    def test_kwargs_int(self):
+        """ """
+        i = self.value()
+        copy = i.to_dict()
+        copy.update({1: 2})
+        with self.assertRaises(TypeError):
+            new = BaseModel(**copy)
+
+    def test_save(self):
+        """ Testing save """
+        i = self.value()
+        i.save()
+        key = self.name + "." + i.id
+        with open('file.json', 'r') as f:
+            j = json.load(f)
+            self.assertEqual(j[key], i.to_dict())
+
+    def test_str(self):
+        """ """
+        i = self.value()
+        self.assertEqual(str(i), '[{}] ({}) {}'.format(self.name, i.id, i.__dict__))
+
+    def test_todict(self):
+        """ """
+        i = self.value()
+        n = i.to_dict()
+        self.assertEqual(i.to_dict(), n)
+
+    def test_kwargs_none(self):
+        """ """
+        n = {None: None}
+        with self.assertRaises(TypeError):
+            new = self.value(**n)
+
+    def test_kwargs_one(self):
+        """ """
+        n = {'Name': 'test'}
+        with self.assertRaises(KeyError):
+            new = self.value(**n)
+
+    def test_id(self):
+        """ """
+        new = self.value()
+        self.assertEqual(type(new.id), str)
+
+    def test_created_at(self):
+        """ """
+        new = self.value()
+        self.assertEqual(type(new.created_at), datetime.datetime)
+   
+    def test_updated_at(self):
+        """ """
+        new = self.value()
+        self.assertEqual(type(new.updated_at), datetime.datetime)
+        n = new.to_dict()
+        new = BaseModel(**n)
+        self.assertFalse(new.created_at == new.updated_at)

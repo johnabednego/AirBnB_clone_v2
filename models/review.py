@@ -1,22 +1,28 @@
 #!/usr/bin/python3
-"""Review module for the HBNB project."""
-from sqlalchemy import Column, ForeignKey, String
-from models.base_model import Base, BaseModel
+""" """
+from tests.test_models.test_base_model import test_basemodel
+from models.review import Review
 
-
-class Review(BaseModel, Base):
-    """Review classto store review information."""
-
-    __tablename__ = "reviews"
-    place_id = Column(String(60), ForeignKey("places.id"), nullable=False)
-    user_id = Column(String(60), ForeignKey("users.id"), nullable=False)
-    text = Column(String(1024), nullable=False)
+class test_review(test_basemodel):
+    """ """
 
     def __init__(self, *args, **kwargs):
-        """Init method."""
-        filtered_kwargs = {k: v for k, v in kwargs.items()
-                           if hasattr(self, k) or k == "id"}
-        super().__init__(*args, **filtered_kwargs)
-        self.text = kwargs.get("text", None)
-        self.place_id = kwargs.get("place_id", None)
-        self.user_id = kwargs.get("user_id", None)
+        """ """
+        super().__init__(*args, **kwargs)
+        self.name = "Review"
+        self.value = Review
+
+    def test_place_id(self):
+        """ """
+        new = self.value()
+        self.assertEqual(type(new.place_id), str)
+
+    def test_user_id(self):
+        """ """
+        new = self.value()
+        self.assertEqual(type(new.user_id), str)
+
+    def test_text(self):
+        """ """
+        new = self.value()
+        self.assertEqual(type(new.text), str)
