@@ -1,28 +1,13 @@
 #!/usr/bin/python3
-""" """
-from tests.test_models.test_base_model import test_basemodel
-from models.review import Review
+""" Review module for the HBNB project """
+from models.base_model import BaseModel, Base
+from sqlalchemy import Column, String, ForeignKey
 
-class test_review(test_basemodel):
-    """ """
 
-    def __init__(self, *args, **kwargs):
-        """ """
-        super().__init__(*args, **kwargs)
-        self.name = "Review"
-        self.value = Review
+class Review(BaseModel, Base):
+    """ Review class to store review information """
+    __tablename__ = 'reviews'
 
-    def test_place_id(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.place_id), str)
-
-    def test_user_id(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.user_id), str)
-
-    def test_text(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.text), str)
+    text = Column(String(1024), nullable=False)
+    place_id = Column(String(60), ForeignKey('places.id'), nullable=False)
+    user_id = Column(String(60), ForeignKey('users.id'), nullable=False)

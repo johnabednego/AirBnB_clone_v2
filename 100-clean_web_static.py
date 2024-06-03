@@ -1,97 +1,76 @@
 #!/usr/bin/python3
 """
-do_pack(): Generates a .tgz archive from the
-contents of the web_static folder
-do_deploy(): Distributes an archive to a web server
-deploy (): Creates and distributes an archive to a web server
-do_clean(): Deletes out-of-date archives
+Deletes out-of-date archives,
+using the function do_clean
 """
-
-from fabric.operations import local, run, put, sudo
+from fabric.api import *
 from datetime import datetime
 import os
-from fabric.api import env
-import re
 
-
-env.hosts = ['34.204.60.80', '54.160.72.183']
-
-
-def do_pack():
-    """Function to compress files in an archive"""
-    local("mkdir -p versions")
-    filename = "versions/web_static_{}.tgz".format(datetime.strftime(
-                                                   datetime.now(),
-                                                   "%Y%m%d%H%M%S"))
-    result = local("tar -cvzf {} web_static"
-                   .format(filename))
-    if result.failed:
-        return None
-    return filename
-
-
-def do_deploy(archive_path):
-    """Function to distribute an archive to a server"""
-    if not os.path.exists(archive_path):
-        return False
-    rex = r'^versions/(S+).tgz'
-    match = re.search(rex, archive_path)
-    filename = match.group(1)
-    res = put(archive_path, "/tmp/{}.tgz".format(filename))
-    if res.failed:
-        return False
-    res = run("mkdir -p /data/web_static/releases/{}/".format(filename))
-    if res.failed:
-        return False
-    res = run("tar -xzf /tmp/{}.tgz -C /data/web_static/releases/{}/"
-              .format(filename, filename))
-    if res.failed:
-        return False
-    res = run("rm /tmp/{}.tgz".format(filename))
-    if res.failed:
-        return False
-    res = run("mv /data/web_static/releases/{}"
-              "/web_static/* /data/web_static/releases/{}/"
-              .format(filename, filename))
-    if res.failed:
-        return False
-    res = run("rm -rf /data/web_static/releases/{}/web_static"
-              .format(filename))
-    if res.failed:
-        return False
-    res = run("rm -rf /data/web_static/current")
-    if res.failed:
-        return False
-    res = run("ln -s /data/web_static/releases/{}/ /data/web_static/current"
-              .format(filename))
-    if res.failed:
-        return False
-    print('New version deployed!')
-    return True
+env.hosts = ['54.144.136.64', '100.24.236.179']
+env.user = 'ubuntu'
 
 
 def deploy():
-    """Creates and distributes an archive to a web server"""
-    filepath = do_pack()
-    if filepath is None:
+    ''' Deploys archive '''
+    archive_path = do_pack()
+    if not archive_path:
         return False
-    d = do_deploy(filepath)
-    return d
+    return do_deploy(archive_path)
+
+
+def do_pack():
+    '''
+    Generates a tgz archive from the
+    contents of the web_static folder
+    '''
+    try:
+        local('mkdir -p versions')
+        datetime_format = '%Y%m%d%H%M%S'
+        archive_path = 'versions/web_static_{}.tgz'.format(
+            datetime.now().strftime(datetime_format))
+        local('tar -cvzf {} web_static'.format(archive_path))
+        print('web_static packed: {} -> {}'.format(archive_path,
+              os.path.getsize(archive_path)))
+        return archive_path
+    except:
+        return None
+
+
+def do_deploy(archive_path):
+    '''
+    Deploy archive to web server
+    '''
+    if not os.path.exists(archive_path):
+        return False
+    file_name = archive_path.split('/')[1]
+    file_path = '/data/web_static/releases/'
+    releases_path = file_path + file_name[:-4]
+    try:
+        put(archive_path, '/tmp/')
+        run('mkdir -p {}'.format(releases_path))
+        run('tar -xzf /tmp/{} -C {}'.format(file_name, releases_path))
+        run('rm /tmp/{}'.format(file_name))
+        run('mv {}/web_static/* {}/'.format(releases_path, releases_path))
+        run('rm -rf {}/web_static'.format(releases_path))
+        run('rm -rf /data/web_static/current')
+        run('ln -s {} /data/web_static/current'.format(releases_path))
+        print('New version deployed!')
+        return True
+    except:
+        return False
 
 
 def do_clean(number=0):
-    """Deletes out-of-date archives"""
-    files = local("ls -1t versions", capture=True)
-    file_names = files.split(" ")
-    n = int(number)
-    if n in (0, 1):
-        n = 1
-    for i in file_names[n:]:
-        local("rm versions/{}".format(i))
-    dir_server = run("ls -1t /data/web_static/releases")
-    dir_server_names = dir_server.split(" ")
-    for i in dir_server_names[n:]:
-        if i is 'test':
-            continue
-        run("rm -rf /data/web_static/releases/{}"
-            .format(i))
+    ''' Removes out of date archives locally and remotely '''
+    number = int(number)
+    if number == 0:
+        number = 2
+    else:
+        number += 1
+
+    local('cd versions; ls -t | tail -n +{} | xargs rm -rf'
+          .format(number))
+    releases_path = '/data/web_static/releases'
+    run('cd {}; ls -t | tail -n +{} | xargs rm -rf'
+        .format(releases_path, number))

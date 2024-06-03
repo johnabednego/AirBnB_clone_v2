@@ -1,69 +1,71 @@
 #!/usr/bin/python3
-""" """
-from tests.test_models.test_base_model import test_basemodel
-from models.place import Place
+""" Place Module for HBNB project """
+from models.base_model import BaseModel, Base
+from sqlalchemy import Column, String, Integer, Float, ForeignKey, Table
+from sqlalchemy.orm import relationship
+from os import getenv
+from models.amenity import Amenity
+
+place_amenity = Table('place_amenity', Base.metadata,
+                      Column('place_id', String(60),
+                             ForeignKey('places.id'),
+                             primary_key=True, nullable=False),
+                      Column('amenity_id', String(60),
+                             ForeignKey('amenities.id'),
+                             primary_key=True, nullable=False),
+                      )
 
 
-class test_Place(test_basemodel):
-    """ """
+class Place(BaseModel, Base):
+    """ A place to stay """
+    __tablename__ = 'places'
 
-    def __init__(self, *args, **kwargs):
-        """ """
-        super().__init__(*args, **kwargs)
-        self.name = "Place"
-        self.value = Place
+    city_id = Column(String(60), ForeignKey('cities.id'), nullable=False)
+    user_id = Column(String(60), ForeignKey('users.id'), nullable=False)
+    name = Column(String(128), nullable=False)
+    description = Column(String(1024), nullable=True)
+    number_rooms = Column(Integer, nullable=False, default=0)
+    number_bathrooms = Column(Integer, nullable=False, default=0)
+    max_guest = Column(Integer, nullable=False, default=0)
+    price_by_night = Column(Integer, nullable=False, default=0)
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    amenity_ids = []
 
-    def test_city_id(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.city_id), str)
+    if getenv('HBNB_TYPE_STORAGE') == 'db':
+        reviews = relationship(
+            'Review', cascade='all, delete', backref='place')
+        amenities = relationship(
+            'Amenity', secondary=place_amenity, viewonly=False,
+            backref='place_amenities')
+    else:
+        @property
+        def reviews(self):
+            '''FileStorage relationship between Place and Review'''
+            from models import storage
+            from models.review import Review
 
-    def test_user_id(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.user_id), str)
+            review_list = []
+            review_dict = storage.all(Review)
+            for review in review_dict.values():
+                if review.place_id == self.id:
+                    review_list.append(review)
+            return review_list
 
-    def test_name(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.name), str)
+        @property
+        def amenities(self):
+            '''
+            Returns the list of `Amenity` instances
+            based on the attribute `amenity_ids` that
+            contains all `Amenity.id` linked to the Place
+            '''
+            return self.amenity_ids
 
-    def test_description(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.description), str)
-
-    def test_number_rooms(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.number_rooms), int)
-
-    def test_number_bathrooms(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.number_bathrooms), int)
-
-    def test_max_guest(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.max_guest), int)
-
-    def test_price_by_night(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.price_by_night), int)
-
-    def test_latitude(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.latitude), float)
-
-    def test_longitude(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.latitude), float)
-
-    def test_amenity_ids(self):
-        """ """
-        new = self.value()
-        self.assertEqual(type(new.amenity_ids), list)
+        @amenities.setter
+        def amenities(self, obj=None):
+            '''
+            handles append method for adding an
+            Amenity.id to the attribute amenity_ids
+            '''
+            if type(obj) is Amenity and obj.id not in self.amenity_ids:
+                self.amenity_ids.append(obj.id)
